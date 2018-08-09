@@ -2,19 +2,19 @@ import tensorflow as tf, numpy as np
 from config import Config as BaseConfig
 from models.base import Model as BaseModel
 from utils.wv_utils import load_global_embedding_matrix
-from models.model_ops import embedded,attention_han,conv_with_max_pool,build_loss,build_summaries
-from models.model_encoders import textrnn
+from models.model_ops import embedded,attention_han,bi_gru,conv_with_max_pool,build_loss,build_summaries
 
 
 class Config(BaseConfig):
-    wv_config = {"path_w": "wv/glove/atec_word-300", "train_w": False,
-                 "path_c": "wv/glove/wiki_char-300", "train_c": False}
+    wv_config = {"path_w": "wv/fasttext/wc-300.vec", "train_w": False,
+                 "path_c": "wv/fasttext/wc-300.vec", "train_c": False}
 
+    initial="uniform"
     un_dim=128
     bi_dim=64
 
-    log_dir = "logs/SenMatchSen"
-    save_dir = "checkpoints/SenMatchSen"
+    log_dir = "logs/SenMatchSen1"
+    save_dir = "checkpoints/SenMatchSen1"
 
     modeC=0
 
@@ -23,6 +23,11 @@ class Model(BaseModel):
     def __init__(self,config=Config):
         super(Model).__init__(config)
         self.config=config
+        assert self.config.initial in ["uniform","normal"]
+        if self.config.initial == "uniform":
+            self.initializer=tf.glorot_uniform_initializer()
+        else:
+            self.initializer=tf.glorot_normal_initializer()
         self.embeddings_w,self.embeddings_c = load_global_embedding_matrix(
             self.config.wv_config['path_w'],self.config.wv_config['path_c'],self.config.global_dict)
         self.build_graph()
@@ -33,28 +38,37 @@ class Model(BaseModel):
                                         scope="embedded_w")
             Xc_embedded,size_c=embedded(Xc,self.embeddings_c[0],self.embeddings_c[1],self.config.wv_config["train_c"],
                                         scope="embedded_c")
+            batch_size=tf.shape(Xw)[0]
             # char
-            v0=attention_han(Xc_embedded,self.config.un_dim,"attention_han_c")
-            v1,_=textrnn(Xc_embedded,Xc_l,(self.config.bi_dim,),1.0,"textrnn_c")
-            char_v=tf.concat([v0,v1],axis=-1)
+            v0,v0_size=attention_han(Xc_embedded,self.config.un_dim,self.initializer,"attention_han_c")
+            v1,v1_size=bi_gru(Xc_embedded,Xc_l,(self.config.bi_dim,),2,self.initializer,1.0,"bi_gru_c")
+            char_v=tf.reshape(tf.concat([v0,v1],axis=-1),[batch_size,v0_size+v1_size])
             # word
-            v0=attention_han(Xw_embedded,self.config.un_dim,"attention_han_w")
-            v1,_=textrnn(Xw_embedded,Xw_l,(self.config.bi_dim,),1.0,"textrnn_w")
-            word_v=tf.concat([v0,v1],axis=-1)
+            v0,v0_size=attention_han(Xw_embedded,self.config.un_dim,self.initializer,"attention_han_w")
+            v1,v1_size=bi_gru(Xw_embedded,Xw_l,(self.config.bi_dim,),2,self.initializer,1.0,"bi_gru_w")
+            word_v=tf.reshape(tf.concat([v0,v1],axis=-1),[batch_size,v0_size+v1_size])
             # phrase
-            Xp_embedded,size_p=conv_with_max_pool(Xw_embedded,(2,3,4,5),size_w//4,False,"conv_w2p")
-            v0 = attention_han(Xp_embedded, self.config.un_dim, "attention_han_p")
-            v1, _ = textrnn(Xp_embedded, Xw_l, (self.config.bi_dim,), 1.0, "textrnn_p")
-            phrase_v=tf.concat([v0,v1],axis=-1)
+            Xp_embedded,size_p=conv_with_max_pool(Xw_embedded,(2,3,4,5),size_w//4,False,
+                                                  tf.nn.selu,self.initializer,"conv_w2p")
+            v0,v0_size=attention_han(Xp_embedded,self.config.un_dim,self.initializer,"attention_han_p")
+            v1,v1_size=bi_gru(Xp_embedded,Xw_l,(self.config.bi_dim,),2,self.initializer,1.0,"bi_gru_p")
+            phrase_v=tf.reshape(tf.concat([v0,v1],axis=-1),[batch_size,v0_size+v1_size])
             return char_v,word_v,phrase_v
 
-    def _match(self,h1,h2,scope="match_layers",reuse=False):
+    def _match(self,h1,h2,
+               mah=True,euc=True,cos=True,maxi=True,
+               scope="match_layers",reuse=False):
         with tf.variable_scope(scope,reuse=reuse):
-            v1=tf.abs(h1-h2)
-            v2=(h1-h2)*(h1-h2)
-            v3=h1*h2
-            v4=tf.maximum(h1*h1,h2*h2)
-            h=tf.concat([v1,v2,v3,v4],axis=-1)
+            h=[]
+            if mah:
+                h.append(tf.abs(h1-h2))
+            if euc:
+                h.append((h1-h2)*(h1-h2))
+            if cos:
+                h.append(h1*h2)
+            if maxi:
+                h.append(tf.maximum(h1*h1,h2*h2))
+            h=tf.concat(h,axis=-1)
             return h
 
     def build_graph(self):
@@ -73,10 +87,6 @@ class Model(BaseModel):
                 self.X2w_l = tf.reduce_sum(self.X2w_mask, axis=-1, name="sent2w_len")
                 self.X1c_l = tf.reduce_sum(self.X1c_mask, axis=-1, name="sent1c_len")
                 self.X2c_l = tf.reduce_sum(self.X2c_mask, axis=-1, name="sent2c_len")
-                # self.X1w_l = tf.placeholder(dtype=tf.int32, shape=[None, ], name="sent1w_len_ph")
-                # self.X2w_l = tf.placeholder(dtype=tf.int32, shape=[None, ], name="sent2w_len_ph")
-                # self.X1c_l = tf.placeholder(dtype=tf.int32, shape=[None, ], name="sent1c_len_ph")
-                # self.X2c_l = tf.placeholder(dtype=tf.int32, shape=[None, ], name="sent2c_len_ph")
                 self.y = tf.placeholder(dtype=tf.int32, shape=[None, ], name="label_ph")
                 self.keep_prob = tf.placeholder_with_default(1.0, shape=[], name="keep_prob_ph")
 
@@ -92,12 +102,14 @@ class Model(BaseModel):
             with tf.variable_scope("fc"):
                 h=tf.nn.dropout(tf.concat([match_c,match_w,match_p],axis=-1),self.keep_prob)
                 h1=tf.layers.dense(h,self.config.un_dim,activation=tf.nn.selu,
-                                   kernel_initializer=tf.glorot_uniform_initializer())
-                h2=tf.layers.dense(h,self.config.un_dim,activation=tf.nn.tanh,
-                                   kernel_initializer=tf.glorot_uniform_initializer())
-                h=tf.nn.dropout(tf.concat([h1,h2],axis=-1),keep_prob=self.keep_prob)
+                                   kernel_initializer=self.initializer)
+                h2=tf.layers.dense(h,self.config.un_dim,activation=tf.nn.sigmoid,
+                                   kernel_initializer=self.initializer)
+                h=tf.concat([h1,h2],axis=-1)
+                h=tf.nn.dropout(h,keep_prob=self.keep_prob)
                 pi = 0.01
-                self.logits = tf.layers.dense(h, 1, kernel_initializer=tf.glorot_uniform_initializer(),
+                self.logits = tf.layers.dense(h, 1,
+                                              kernel_initializer=self.initializer,
                                               bias_initializer=tf.constant_initializer(-np.log((1 - pi) / pi)))
             self.pos_prob = tf.nn.sigmoid(self.logits)
             self.var_list = [v for v in tf.global_variables()]

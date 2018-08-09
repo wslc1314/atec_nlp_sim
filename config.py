@@ -4,8 +4,9 @@ class Config:
     global_t2s_dict="data/atec/t2s_dict.json"
     local_train_file="data/atec/10/train0.csv"
     local_valid_file="data/atec/10/valid0.csv"
-    global_dict="data/atec/training_dict.json"
-    local_dict="data/atec/10/train0_dict.json"
+    min_count_wc=[2,2]
+    global_dict="data/atec/training-"+"-".join([str(i) for i in min_count_wc])+".json"
+    local_dict="data/atec/10/train0-"+"-".join([str(i) for i in min_count_wc])+".json"
 
     focal=None
     alpha=None

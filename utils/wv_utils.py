@@ -4,7 +4,7 @@ from gensim import models
 from data.data_utils import loadDict
 
 
-def load_global_embedding_matrix(wv_path_w,wv_path_c,global_dict_path="data/atec/training_dict.json"):
+def load_global_embedding_matrix(wv_path_w,wv_path_c,global_dict_path="data/atec/training-2-2.json"):
     wv_path_list=[wv_path_w,wv_path_c]
     try:
         wv_type_w = wv_path_w.split("/")[-2]
@@ -34,8 +34,8 @@ def load_global_embedding_matrix(wv_path_w,wv_path_c,global_dict_path="data/atec
             wv_type = wv_type_list[i]
             assert wv_type in ["glove", "word2vec", "fasttext"]
             wv_name = wv_name_list[i].replace("wc", wv_level)
-            embed_path=global_dict_path.replace("dict.json",wv_type+'_'+wv_name+".npy")
-            embed_path_oov=global_dict_path.replace("dict.json",wv_type+'_'+wv_name+".oov.npy")
+            embed_path=global_dict_path.replace(".json","_"+wv_type+'_'+wv_name+".npy")
+            embed_path_oov=global_dict_path.replace(".json","_"+wv_type+'_'+wv_name+".oov.npy")
             if os.path.exists(embed_path):
                 embeddings=np.load(embed_path)
                 oov_mask=np.load(embed_path_oov)
@@ -45,7 +45,7 @@ def load_global_embedding_matrix(wv_path_w,wv_path_c,global_dict_path="data/atec
                 i2v=loadDict(global_dict_path)[wv_level]["i2v"]
                 vocab_size=len(i2v)
                 embedding_size=int(wv_name.split("-")[-1])
-                embeddings = np.random.uniform(low=-0.05,high=0.05,size=(vocab_size, embedding_size))
+                embeddings = np.random.uniform(low=-0.1,high=0.1,size=(vocab_size, embedding_size))
                 if wv_type == "word2vec":
                     model = models.Word2Vec.load(wv_path)
                 else:
@@ -69,7 +69,7 @@ def load_global_embedding_matrix(wv_path_w,wv_path_c,global_dict_path="data/atec
             i2v = loadDict(global_dict_path)[wv_level]["i2v"]
             vocab_size = len(i2v)
             embedding_size = int(wv_path)
-            embeddings = np.random.uniform(low=-0.05, high=0.05, size=(vocab_size, embedding_size))
+            embeddings = np.random.uniform(low=-0.1, high=0.1, size=(vocab_size, embedding_size))
             oov_mask = [0]*vocab_size
             oov_mask = np.asarray(oov_mask, dtype=np.int).reshape((vocab_size, 1))
             embeddings_list.append((embeddings, oov_mask))
@@ -81,12 +81,12 @@ def load_global_embedding_matrix(wv_path_w,wv_path_c,global_dict_path="data/atec
 if __name__=="__main__":
 
     for i in [25,50,100,200,300]:
-        load_global_embedding_matrix("../wv/glove/atec_word-"+str(i),
-                                     "../wv/glove/atec_char-"+str(i),
-                                     "../data/atec/training_dict.json")
+        load_global_embedding_matrix("../wv/glove/atec_word-4-"+str(i),
+                                     "../wv/glove/atec_char-4-"+str(i),
+                                     "../data/atec/training-4-4.json")
         load_global_embedding_matrix("../wv/glove/wiki_word-"+str(i),
                                      "../wv/glove/wiki_char-"+str(i),
-                                     "../data/atec/training_dict.json")
+                                     "../data/atec/training-4-4.json")
     load_global_embedding_matrix("../wv/fasttext/wc-300.vec",
                                  "../wv/fasttext/wc-300.vec",
-                                 "../data/atec/training_dict.json")
+                                 "../data/atec/training-4-4.json")

@@ -2,28 +2,33 @@ import tensorflow as tf, numpy as np
 from config import Config as BaseConfig
 from models.base import Model as BaseModel
 from utils.wv_utils import load_global_embedding_matrix
-from models.model_ops import embedded,biGRU,attention_to,linear_transform,build_loss,build_summaries
-from models.model_encoders import textcnn,textrnn,crnn
+from models.model_ops import embedded,bi_gru,attention_to,linear_transform,conv_with_max_pool,build_loss,build_summaries
 
 
 class Config(BaseConfig):
-    wv_config = {"path_w": "wv/glove/atec_word-300", "train_w": False,
+    wv_config = {"path_w": "wv/fasttext/wc-300.vec", "train_w": False,
                  "path_c": "wv/fasttext/wc-300.vec", "train_c": False}
 
-    gru_dim=128
-    comp_dim=256
-    aggre_dim=64
+    initial = "uniform"
+    char_dim=50
+    bi_dim=64
+    un_dim=128
 
-    log_dir = "logs/SeqMatchSeq"
-    save_dir = "checkpoints/SeqMatchSeq"
+    log_dir = "logs/SeqMatchSeq1"
+    save_dir = "checkpoints/SeqMatchSeq1"
 
-    modeC=4
+    modeC=5
 
 
 class Model(BaseModel):
     def __init__(self, config=Config):
         super(Model).__init__(config)
-        self.config=config
+        self.config = config
+        assert self.config.initial in ["uniform", "normal"]
+        if self.config.initial == "uniform":
+            self.initializer = tf.glorot_uniform_initializer()
+        else:
+            self.initializer = tf.glorot_normal_initializer()
         self.embeddings_w, self.embeddings_c = load_global_embedding_matrix(
             self.config.wv_config['path_w'], self.config.wv_config['path_c'], self.config.global_dict)
         self.build_graph()
@@ -36,21 +41,25 @@ class Model(BaseModel):
             Xc_embedded, size_c = embedded(Xc, self.embeddings_c[0], self.embeddings_c[1],
                                            self.config.wv_config["train_c"],
                                            scope="embedded_c")
-            Xc_embedded=tf.reshape(tf.reduce_max(Xc_embedded,axis=-2),
-                                   [tf.shape(Xw)[0],tf.shape(Xw)[1],size_c])
+            batch_size,seq_len=tf.shape(Xw)[0],tf.shape(Xw)[1]
+            Xc_embedded=tf.reshape(Xc_embedded,shape=[batch_size*seq_len,-1,size_c])
+            Xc_len=tf.reshape(Xc_len,shape=[batch_size*seq_len,])
+            Xc_embedded,size_c=bi_gru(Xc_embedded,Xc_len,(self.config.char_dim,),2,self.initializer,1.0,"bi_gru_c2w")
+            Xc_embedded=tf.reshape(Xc_embedded,shape=[batch_size,seq_len,size_c])
             X_embedded=tf.concat([Xw_embedded,Xc_embedded],axis=-1)
-            out_w, out_w_size = biGRU(X_embedded, Xw_len, (self.config.gru_dim,),1, scope="biGRU_wc")
+            out_w, out_w_size = bi_gru(X_embedded, Xw_len, (self.config.bi_dim,),1,
+                                       self.initializer, 1.0, "bi_gru__wc")
             return out_w,out_w_size
 
     def _compare(self,seq1,seq2,scope="compare_layers",reuse=False):
         with tf.variable_scope(scope,reuse=reuse):
             sub=(seq1-seq2)*(seq1-seq2)
             mul=seq1*seq2
-            sm=tf.concat([sub,mul],axis=-1)
-            sm=linear_transform(sm,self.config.comp_dim,tf.nn.selu,"nn")
-            # abs=tf.abs(seq1-seq2)
-            # max=tf.maximum(seq1*seq1,seq2*seq2)
-            # sm=tf.concat([sub,mul,abs,max],axis=-1)
+            abs=tf.abs(seq1-seq2)
+            max=tf.maximum(seq1*seq1,seq2*seq2)
+            sm=tf.concat([sub,mul,abs,max],axis=-1)
+            sm,sm_size=linear_transform(sm,self.config.un_dim,tf.nn.selu,
+                                        self.initializer,"linear_transform")
             return sm
 
     def build_graph(self):
@@ -77,26 +86,24 @@ class Model(BaseModel):
                 self.keep_prob = tf.placeholder_with_default(1.0, shape=[], name="keep_prob_ph")
 
             # preprocess
-            Q,q_size = self._preprocess(self.X1w, self.X1w_l, self.X1c, self.X1c_l, scope="preprocess_1")
-            A,a_size = self._preprocess(self.X2w, self.X2w_l, self.X2c, self.X2c_l, scope="preprocess_2")
+            Q,q_size = self._preprocess(self.X1w, self.X1w_l, self.X1c, self.X1c_l, scope="preprocess_layers")
+            A,a_size = self._preprocess(self.X2w, self.X2w_l, self.X2c, self.X2c_l, scope="preprocess_layers",reuse=True)
 
             # attention
-            H= attention_to(Q, A, scope="attention_to_a")
-            K= attention_to(A, Q, scope="attention_to_q")
+            H,_= attention_to(Q, A,self.initializer,"attention_to_a_layers")
+            K,_= attention_to(A, Q,self.initializer,"attention_to_q_layers")
 
             # comparison
-            out_qa= self._compare(H,A,"compare_to_a")
+            out_qa= self._compare(H,A,"compare_to_a_layers")
+            out_aq= self._compare(K,Q,"compare_to_q_layers")
             out_qa=tf.nn.dropout(out_qa,self.keep_prob)
-            out_aq= self._compare(K,Q,"compare_to_q")
             out_aq=tf.nn.dropout(out_aq,self.keep_prob)
 
             # aggregation
-            out_qa, _ = textcnn(out_qa,(2,3,4,5),self.config.aggre_dim, scope="textcnn_a")
-            out_aq, _ = textcnn(out_aq,(2,3,4,5),self.config.aggre_dim, scope="textcnn_q")
-            # out_qa, _ = textrnn(out_qa,self.X2w_l,(self.config.aggre_dim,), scope="textrnn_a")
-            # out_aq, _ = textrnn(out_aq,self.X1w_l,(self.config.aggre_dim,), scope="textrnn_q")
-            # out_qa, _ = crnn(out_qa,self.X2w_l,(3,),self.config.aggre_dim,(self.config.aggre_dim,),scope="crnn_a")
-            # out_aq, _ = crnn(out_aq,self.X1w_l,(3,),self.config.aggre_dim,(self.config.aggre_dim,),scope="crnn_q")
+            out_qa, _ = conv_with_max_pool(out_qa,(2,3,4,5),self.config.un_dim//4,True,
+                                           tf.nn.selu,self.initializer,"conv_with_max_pooling")
+            out_aq, _ = conv_with_max_pool(out_aq,(2,3,4,5),self.config.un_dim//4,True,
+                                           tf.nn.selu,self.initializer,"conv_with_max_pooling",reuse=True)
             out=tf.concat([out_qa,out_aq],axis=-1)
 
             with tf.variable_scope("fc"):

@@ -2,50 +2,59 @@ import tensorflow as tf, numpy as np
 from config import Config as BaseConfig
 from models.base import Model as BaseModel
 from utils.wv_utils import load_global_embedding_matrix
-from models.model_ops import embedded,biGRU,build_loss,build_summaries
+from models.model_ops import embedded,bi_gru,build_loss,build_summaries
 EPSILON = 1e-6
 
 
 class Config(BaseConfig):
     # model
     wv_config = {"path_w": "wv/fasttext/wc-300.vec", "train_w": False,
-                 "path_c": 20, "train_c": True}
+                 "path_c": "wv/fasttext/wc-300.vec", "train_c": False}
 
-    char_gru_dim=50
-    bi_gru_dim=100
-    mp_dim=20
-    fc_dim=50
+    initial = "uniform"
+    char_dim = 50
+    bi_dim = 64
+    un_dim = 128
+    mp_dim=16
 
-    log_dir = "logs/SeqMatchSeq_BiMPM"
-    save_dir = "checkpoints/SeqMatchSeq_BiMPM"
+    log_dir = "logs/SeqMatchSeq_BiMPM1"
+    save_dir = "checkpoints/SeqMatchSeq_BiMPM1"
 
-    modeC = 10
+    modeC = 5
 
 
 class Model(BaseModel):
     def __init__(self,config=Config):
         super(Model).__init__(config)
-        self.config=config
+        self.config = config
+        assert self.config.initial in ["uniform", "normal"]
+        if self.config.initial == "uniform":
+            self.initializer = tf.glorot_uniform_initializer()
+        else:
+            self.initializer = tf.glorot_normal_initializer()
         self.embeddings_w, self.embeddings_c = load_global_embedding_matrix(
             self.config.wv_config['path_w'], self.config.wv_config['path_c'], self.config.global_dict)
         self.build_graph()
 
     def _preprocess(self,Xw,Xw_len,Xc,Xc_len,scope="preprocess_layers",reuse=False):
         with tf.variable_scope(scope,reuse=reuse):
-            batch_size,seq_len=tf.shape(Xw)[0],tf.shape(Xw)[1]
             Xw_embedded, size_w = embedded(Xw, self.embeddings_w[0], self.embeddings_w[1],
                                            self.config.wv_config["train_w"],
                                            scope="embedded_w")
             Xc_embedded, size_c = embedded(Xc, self.embeddings_c[0], self.embeddings_c[1],
                                            self.config.wv_config["train_c"],
                                            scope="embedded_c")
-            Xc_embedded=tf.reshape(Xc_embedded,shape=[batch_size*seq_len,-1,size_c])
-            Xc_len=tf.reshape(Xc_len,shape=[batch_size*seq_len,])
-            Xc_embedded,size_c=biGRU(Xc_embedded,Xc_len,(self.config.char_gru_dim,),2,scope="c2w")
-            Xc_embedded=tf.reshape(Xc_embedded,shape=[batch_size,seq_len,size_c])
-            X_embedded=tf.concat([Xw_embedded,Xc_embedded],axis=-1)
-            (out_f, out_b),_ = biGRU(X_embedded, Xw_len, (self.config.bi_gru_dim,),0,scope="biGRU_wc")
-            return tf.nn.dropout(out_f,self.keep_prob),tf.nn.dropout(out_b,self.keep_prob)
+            batch_size, seq_len = tf.shape(Xw)[0], tf.shape(Xw)[1]
+            Xc_embedded = tf.reshape(Xc_embedded, shape=[batch_size * seq_len, -1, size_c])
+            Xc_len = tf.reshape(Xc_len, shape=[batch_size * seq_len, ])
+            Xc_embedded, size_c = bi_gru(Xc_embedded, Xc_len, (self.config.char_dim,), 2, self.initializer, 1.0,
+                                         "bi_gru_c2w")
+            Xc_embedded = tf.reshape(Xc_embedded, shape=[batch_size, seq_len, size_c])
+            X_embedded = tf.concat([Xw_embedded, Xc_embedded], axis=-1)
+            (out_f,out_b), out_size = bi_gru(tf.nn.dropout(X_embedded,self.keep_prob),
+                                             Xw_len, (self.config.bi_dim,),0,
+                                             self.initializer, self.keep_prob , "bi_gru__wc")
+            return out_f,out_b
 
     def build_graph(self):
         self.graph = tf.Graph()
@@ -66,8 +75,8 @@ class Model(BaseModel):
                 self.X1c_l = tf.reduce_sum(self.X1c_mask, axis=-1, name="sent1c_len")
                 self.X2c_l = tf.reduce_sum(self.X2c_mask, axis=-1, name="sent2c_len")
 
-            X1_f,X1_b=self._preprocess(self.X1w,self.X1w_l,self.X1c,self.X1c_l,scope="preprocess_layers_1")
-            X2_f,X2_b=self._preprocess(self.X2w,self.X2w_l,self.X2c,self.X2c_l,scope="preprocess_layers_2")
+            X1_f,X1_b=self._preprocess(self.X1w,self.X1w_l,self.X1c,self.X1c_l,scope="preprocess_layers")
+            X2_f,X2_b=self._preprocess(self.X2w,self.X2w_l,self.X2c,self.X2c_l,scope="preprocess_layers",reuse=True)
 
             with tf.variable_scope("match_layers"):
                 # Shapes: (batch_size, num_sentence_words, 8*multi-perspective_dims)
@@ -77,18 +86,20 @@ class Model(BaseModel):
                 
             # Aggregate the representations from the matching functions.
             with tf.variable_scope("aggregate_layers"):
-                seq_1_fb,_=biGRU(match_1_to_2_out,self.X1w_l,(self.config.bi_gru_dim,),2,scope="biGRU_1")
-                seq_2_fb,_= biGRU(match_2_to_1_out, self.X2w_l, (self.config.bi_gru_dim,),2,scope="biGRU_2")
+                seq_1_fb,_=bi_gru(match_1_to_2_out,self.X1w_l,(self.config.bi_dim,),2,
+                                  self.initializer,1.0,"bi_gru")
+                seq_2_fb,_= bi_gru(match_2_to_1_out, self.X2w_l, (self.config.bi_dim,),2,
+                                   self.initializer,1.0,"bi_gru",reuse=True)
                 combined_aggregated_representation = tf.concat([seq_1_fb,seq_2_fb], -1)
 
-            with tf.variable_scope("fc"):
+            with tf.variable_scope("fc_layers"):
                 h = tf.nn.dropout(combined_aggregated_representation,keep_prob=self.keep_prob)
-                h = tf.layers.dense(h, self.config.fc_dim, activation=tf.nn.selu,
-                                    kernel_initializer=tf.glorot_uniform_initializer())
+                h = tf.layers.dense(h, self.config.un_dim, activation=tf.nn.selu,
+                                    kernel_initializer=self.initializer)
                 h = tf.nn.dropout(h, keep_prob=self.keep_prob)
                 pi = 0.01
                 self.logits = tf.layers.dense(h, 1,
-                                              kernel_initializer=tf.glorot_uniform_initializer(),
+                                              kernel_initializer=self.initializer,
                                               bias_initializer=tf.constant_initializer(-np.log((1 - pi) / pi)))
             self.pos_prob = tf.nn.sigmoid(self.logits)
             self.var_list = [v for v in tf.global_variables()]

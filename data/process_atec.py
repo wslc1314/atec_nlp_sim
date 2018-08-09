@@ -6,32 +6,38 @@ plt.rcParams['font.sans-serif'] = ['SimHei']  # 中文字体设置
 plt.rcParams['axes.unicode_minus'] = False
 
 
-def combine_train_files():
-    final_file=codecs.open("atec/atec_nlp_sim_train_all.csv",'w',encoding="utf-8")
+def combine_train_files(dest_path="atec/atec_nlp_sim_train_all.csv",
+                        src_path_list=("atec/atec_nlp_sim_train.csv","atec/atec_nlp_sim_train_add.csv")):
+    final_file=codecs.open(dest_path,'w',encoding="utf-8")
     line_id=0
-    with codecs.open("atec/atec_nlp_sim_train.csv",'r',encoding="utf-8") as f:
-        line=f.readline()
-        while line:
-            final_file.write(line)
-            line_id+=1
-            line = f.readline()
-    print(line_id) # 39346
-    with codecs.open("atec/atec_nlp_sim_train_add.csv",'r',encoding="utf-8") as f:
-        line=f.readline()
-        while line:
-            line=line.strip().split('\t')
-            now_id=str(int(line[0])+line_id)
-            print(now_id)
-            final_file.write("\t".join([now_id]+line[1:])+"\n")
-            line = f.readline()
+    for id,src_path in enumerate(src_path_list):
+        if id==0:
+            with codecs.open(src_path,'r',encoding="utf-8") as f:
+                line=f.readline()
+                while line:
+                    final_file.write(line)
+                    line_id+=1
+                    line = f.readline()
+        else:
+            print(line_id) # 39346
+            with codecs.open(src_path,'r',encoding="utf-8") as f:
+                line=f.readline()
+                now_id=None
+                while line:
+                    line=line.strip().split('\t')
+                    now_id=str(int(line[0])+line_id)
+                    final_file.write("\t".join([now_id]+line[1:])+"\n")
+                    line = f.readline()
+                line_id=int(now_id)
     final_file.close()
-    with codecs.open("atec/atec_nlp_sim_train_all.csv",'r',"utf-8") as f:
+    with codecs.open(dest_path,'r',"utf-8") as f:
         data=f.readlines()
         print(len(data)) # 102477
         print(data[-1].split("\t"))
 
 
-def get_t2s_dict(t_file="atec/atec_nlp_sim_train_all.csv",s_file="atec/atec_nlp_sim_train_all.simp.csv",
+def get_t2s_dict(t_file="atec/atec_nlp_sim_train_all.csv",
+                 s_file="atec/atec_nlp_sim_train_all.simp.csv",
                  save_path="atec/t2s_dict.json"):
     t2s={}
     with codecs.open(t_file,'r',"utf-8") as f:
@@ -125,12 +131,19 @@ def get_corpus(file_path="atec/atec_nlp_sim_train_all.simp.csv",corpus_path="ate
     jieba.load_userdict("myDict.txt")
     target_char = codecs.open(corpus_path+"_char", 'w', encoding='utf-8')
     target_word = codecs.open(corpus_path + "_word", 'w', encoding='utf-8')
+    en2ch={"huabei":"花呗","jiebei":"借呗","mayi":"蚂蚁","xiugai": "修改", "zhifu": "支付",
+           "zhifubao":"支付宝","mobike": "摩拜","zhebi":"这笔","xinyong":"信用","neng":"能",
+           "buneng":"不能","keyi":"可以","tongguo":"通过","changshi":"尝试","bunengyongle":"不能用了",
+           "mobie": "摩拜","feichang":"非常","huankuan":"还款","huanqian":"还钱","jieqian":"借钱",
+           "shouqian":"收钱","shoukuan":"收款"}
     with codecs.open(file_path, 'r', encoding='utf-8') as f:
         print('open a file.')
         lineNum = 1
         line = f.readline()
         while line:
             print('---processing ', lineNum, ' article---')
+            for k,v in sorted(en2ch.items(),key=lambda x:len(x[0]),reverse=True):
+                line = line.replace(k, v)
             line = line.strip().split('\t')
             # 保留中文、英文
             p = re.compile(u'[^\u4e00-\u9fa5a-z]')  # 中文的编码范围是：\u4e00到\u9fa5

@@ -10,6 +10,7 @@ class Model:
 
     def __init__(self,config):
         self.config=None
+        self.initializer=None
         self.graph=None
         self.X1w,self.X1c,self.X1w_l,self.X1c_l=None,None,None,None
         self.X2w,self.X2c,self.X2w_l,self.X2c_l=None,None,None,None
@@ -88,7 +89,7 @@ class Model:
         msg = "\n".join(["--" + key + ": %s" % value for (key, value) in msg_dict.items() if key[0] != '_'])
         logger.info(msg)
         # 定义数据生成器
-        dictPath = trainFile.split(".")[0] + "_dict.json"
+        dictPath = trainFile.split(".")[0] + "-"+"-".join([str(i) for i in self.config.min_count_wc])+".json"
         if os.path.exists(dictPath):
             pass
         else:
@@ -188,8 +189,8 @@ class Model:
                         cur_early_stopping = 0
                         cur_f1.append(avg_f1_v)
                         cur_f1=cur_f1[1:]
-                        assert len(cur_f1)== max_to_keep
-                        if avg_f1_v>cur_max_f1:
+                        assert len(cur_f1) == max_to_keep
+                        if avg_f1_v > cur_max_f1:
                             cur_max_f1=avg_f1_v
                             logger.info("Saving model-%s" % (epoch + 1))
                             saver.save(sess, os.path.join(save_dir, 'model.ckpt'), global_step=epoch + 1)

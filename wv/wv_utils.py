@@ -111,11 +111,13 @@ def analyze_wv_vocab_coverage(wv_path,global_train_path="../data/atec/training.c
     if level_type in ["word","wc"]:
         sent1,sent2=raw_data["sent1w"],raw_data["sent2w"]
         analyze_wv_vocab_coverage_helper(sent1,sent2,min_count,wv_vocab,
-                                         wv_path.split("-")[0].replace("wc","word") + "_vc.png")
+                                         "-".join(wv_path.split("-")[0:-1]).replace("wc","word")
+                                         +"-"+str(min_count) + "_vc.png")
     if level_type in ["char","wc"]:
         sent1, sent2 = raw_data["sent1c"], raw_data["sent2c"]
-        analyze_wv_vocab_coverage_helper(sent1, sent2, min_count,wv_vocab,
-                                         wv_path.split("-")[0].replace("wc", "char") + "_vc.png")
+        analyze_wv_vocab_coverage_helper(sent1,sent2,min_count,wv_vocab,
+                                         "-".join(wv_path.split("-")[0:-1]).replace("wc","char")
+                                         +"-"+str(min_count) + "_vc.png")
 
 
 def analyze_wv_vocab_coverage_helper(sent1,sent2,min_count,wv_vocab,savePath):

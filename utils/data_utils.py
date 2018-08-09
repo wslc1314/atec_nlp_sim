@@ -42,11 +42,11 @@ def createGlobalWCDict(trainFile = "data/atec/training.csv",min_count_w=2,min_co
     char_dict={"i2v":int_to_vocab,"v2i":vocab_to_int}
 
     cw_dict={"char":char_dict,"word":word_dict}
-    saveDict(cw_dict,savePath+"_dict.json")
+    saveDict(cw_dict,savePath+"-"+str(min_count_w)+"-"+str(min_count_c)+".json")
 
 
 def createLocalWCDict(trainFile,min_count_w=2,min_count_c=2,
-                      global_dict_path="data/atec/training_dict.json"):
+                      global_dict_path="data/atec/training-2-2.json"):
     """
     根据训练数据的不同生成不同的动态序号-词/字、词/字-序号字典
     """
@@ -97,10 +97,10 @@ def createLocalWCDict(trainFile,min_count_w=2,min_count_c=2,
     print("total vocab size: ",len(v2i.keys()))
     c_dict={"v2i":v2i,"i2v":i2v}
     d={"word":w_dict,"char":c_dict}
-    saveDict(d, savePath + "_dict.json")
+    saveDict(d, savePath + "-" + str(min_count_w) + "-" + str(min_count_c) + ".json")
     return d
 
 
 if __name__=="__main__":
-    createGlobalWCDict("../data/atec/training.csv",2,2)
-    createLocalWCDict("../data/atec/10/train0.csv",2,2,"../data/atec/training_dict.json")
+    createGlobalWCDict("../data/atec/training.csv",4,4)
+    createLocalWCDict("../data/atec/10/train0.csv",4,4,"../data/atec/training-4-4.json")

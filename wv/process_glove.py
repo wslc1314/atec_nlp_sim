@@ -36,37 +36,37 @@ def processGloVe(filename):
 
 if __name__ == "__main__":
 
-    """atec
-    """
-    for size in [25,50,100,200,300]:
-        filename="glove/atec_char-"+str(size)+".txt"
-        processGloVe(filename)
-        filename = "glove/atec_word-" + str(size) + ".txt"
-        processGloVe(filename)
-
-    """wiki
-    """
-    for size in [25,50,100,200,300]:
-        filename="glove/wiki_char-"+str(size)+".txt"
-        processGloVe(filename)
-        filename = "glove/wiki_word-" + str(size) + ".txt"
-        processGloVe(filename)
-
-    """分析词向量
-    """
-    from wv.wv_utils import visualize_wv
-    wv_path = "glove/"
-    for i in [25, 50, 100, 200, 300]:
-        visualize_wv(wv_path + "atec_char-" + str(i))
-    for i in [25, 50, 100, 200, 300]:
-        visualize_wv(wv_path + "atec_word-" + str(i))
-    for i in [25, 50, 100, 200, 300]:
-        visualize_wv(wv_path + "wiki_char-" + str(i))
-    for i in [25, 50, 100, 200, 300]:
-        visualize_wv(wv_path + "wiki_word-" + str(i))
+    # """atec
+    # """
+    # for size in [25,50,100,200,300]:
+    #     filename="glove/atec_char-4-"+str(size)+".txt"
+    #     processGloVe(filename)
+    #     filename = "glove/atec_word-4-" + str(size) + ".txt"
+    #     processGloVe(filename)
+    #
+    # # # """wiki
+    # # # """
+    # # # for size in [25,50,100,200,300]:
+    # # #     filename="glove/wiki_char-"+str(size)+".txt"
+    # # #     processGloVe(filename)
+    # # #     filename = "glove/wiki_word-" + str(size) + ".txt"
+    # # #     processGloVe(filename)
+    #
+    # """分析词向量
+    # """
+    # from wv.wv_utils import visualize_wv
+    # wv_path = "glove/"
+    # for i in [25, 50, 100, 200, 300]:
+    #     visualize_wv(wv_path + "atec_char-4-" + str(i))
+    # for i in [25, 50, 100, 200, 300]:
+    #     visualize_wv(wv_path + "atec_word-4-" + str(i))
+    # # for i in [25, 50, 100, 200, 300]:
+    # #     visualize_wv(wv_path + "wiki_char-" + str(i))
+    # # for i in [25, 50, 100, 200, 300]:
+    # #     visualize_wv(wv_path + "wiki_word-" + str(i))
 
     from wv.wv_utils import analyze_wv_vocab_coverage
-    analyze_wv_vocab_coverage("glove/atec_char-25","../data/atec/training.csv",2)
-    analyze_wv_vocab_coverage("glove/atec_word-25","../data/atec/training.csv",2)
-    analyze_wv_vocab_coverage("glove/wiki_char-25","../data/atec/training.csv",2)
-    analyze_wv_vocab_coverage("glove/wiki_word-25","../data/atec/training.csv",2)
+    analyze_wv_vocab_coverage("glove/atec_char-4-25","../data/atec/training.csv",4)
+    analyze_wv_vocab_coverage("glove/atec_word-4-25","../data/atec/training.csv",4)
+    # analyze_wv_vocab_coverage("glove/wiki_char-25","../data/atec/training.csv",4)
+    # analyze_wv_vocab_coverage("glove/wiki_word-25","../data/atec/training.csv",4)
