@@ -83,6 +83,7 @@ static：词向量在模型训练过程中保持不变；nonstatic：词向量�
 Evaluating with file: data/atec/10/train0.csv, local dict: data/atec/10/train0_dict.json...  
 Evaluating with file: data/atec/10/valid0.csv, local dict: data/atec/10/train0_dict.json...
 + ce  √  
+
 The total number of trainable variables(embedding matrix excluded): 2490441
 
 | epoch | threshold | t_f1 | v_f1 | threshold | t_f1 | v_f1 |
@@ -93,6 +94,7 @@ The total number of trainable variables(embedding matrix excluded): 2490441
 | 65 | 0.50 | 0.6667 | 0.5335 | 0.35 | 0.6668 | 0.5553 |
 | 76 | 0.50 | 0.6942 | 0.5445 | 0.45 | 0.6888 | 0.5476 | 
 + focal_0.75  
+
 The total number of trainable variables(embedding matrix excluded): 2490441
 
 | epoch | threshold | t_f1 | v_f1 | threshold | t_f1 | v_f1 |
@@ -103,6 +105,7 @@ The total number of trainable variables(embedding matrix excluded): 2490441
 | 51 | 0.50 | 0.6133 | 0.5481 | 0.50 | 0.6133 | 0.5481 |
 | 74 | 0.50 | 0.6478 | 0.5489 | 0.50 | 0.6478 | 0.5489 |
 + focal_0.5  
+
 The total number of trainable variables(embedding matrix excluded): 2490441
 
 | epoch | threshold | t_f1 | v_f1 | threshold | t_f1 | v_f1 |
@@ -112,11 +115,13 @@ The total number of trainable variables(embedding matrix excluded): 2490441
 | 44 | 0.50 | 0.5934 | 0.5282 | 0.45 | 0.6023 | 0.5487 |
 | 56 | 0.50 | 0.6273 | 0.5359 | 0.50 | 0.6273 | 0.5359 |
 | 85 | 0.50 | 0.6881 | 0.5467 | 0.50 | 0.6881 | 0.5467 |
+
 !["SenMatchSen1.png"](models/SenMatchSen1.png "模型结构1")
 ### uniform v.s normal
 Evaluating with file: data/atec/10/train0.csv, local dict: data/atec/10/train0_dict.json...  
 Evaluating with file: data/atec/10/valid0.csv, local dict: data/atec/10/train0_dict.json...
 + uniform  √  
+
 The total number of trainable variables(embedding matrix excluded): 2490441
 
 | epoch | threshold | t_f1 | v_f1 | threshold | t_f1 | v_f1 |
@@ -125,6 +130,7 @@ The total number of trainable variables(embedding matrix excluded): 2490441
 | 44 | 0.50 | 0.6270 | 0.5394 | 0.45 | 0.6335 | 0.5493 |
 | 53 | 0.50 | 0.6477 | 0.5430 | 0.40 | 0.6551 | 0.5546 |
 + normal  
+
 The total number of trainable variables(embedding matrix excluded): 2490441
 
 | epoch | threshold | t_f1 | v_f1 | threshold | t_f1 | v_f1 |
@@ -138,6 +144,7 @@ Evaluating with file: data/atec/10/train0.csv, local dict: data/atec/10/train0_d
 Evaluating with file: data/atec/10/valid0.csv, local dict: data/atec/10/train0_dict.json...
 + 单向  
 !["SeqMatchSeq_un.png"](models/SeqMatchSeq_un.png "模型结构单向")
+
 The total number of trainable variables(embedding matrix excluded): 1842433
 
 | epoch | threshold | t_f1 | v_f1 | threshold | t_f1 | v_f1 |
@@ -147,6 +154,7 @@ The total number of trainable variables(embedding matrix excluded): 1842433
 | 65 | 0.50 | 0.6993 | 0.5254 | 0.45 | 0.6990 | 0.5374 |
 + 双向  √  
 !["SeqMatchSeq_bi.png"](models/SeqMatchSeq_bi.png "模型结构双向")
+
 The total number of trainable variables(embedding matrix excluded): 2433537
 
 | epoch | threshold | t_f1 | v_f1 | threshold | t_f1 | v_f1 |
@@ -158,6 +166,7 @@ The total number of trainable variables(embedding matrix excluded): 2433537
 Evaluating with file: data/atec/10/train0.csv, local dict: data/atec/10/train0_dict.json...  
 Evaluating with file: data/atec/10/valid0.csv, local dict: data/atec/10/train0_dict.json...
 + 不共用  
+
 The total number of trainable variables(embedding matrix excluded): 962473
 
 | epoch | threshold | t_f1 | v_f1 | threshold | t_f1 | v_f1 |
@@ -166,6 +175,7 @@ The total number of trainable variables(embedding matrix excluded): 962473
 | 43 | 0.50 | 0.5910 | 0.4972 | 0.35 | 0.6355 | 0.5460 |
 | 44 | 0.50 | 0.6397 | 0.5386 | 0.45 | 0.6380 | 0.5449 |
 + 共用预处理层、联合层参数  √  
+
 The total number of trainable variables(embedding matrix excluded): 563669
 
 | epoch | threshold | t_f1 | v_f1 | threshold | t_f1 | v_f1 |
@@ -179,6 +189,7 @@ Evaluating with file: data/atec/10/train0.csv, local dict: data/atec/10/train0_d
 Evaluating with file: data/atec/10/valid0.csv, local dict: data/atec/10/train0_dict.json...
 + 不共用  
 + 共用预处理层、联合层参数  √    
+
 The total number of trainable variables(embedding matrix excluded): 407381
   
 | epoch | threshold | t_f1 | v_f1 | threshold | t_f1 | v_f1 |
@@ -186,11 +197,13 @@ The total number of trainable variables(embedding matrix excluded): 407381
 | 7 | 0.50 | 0.5742 | 0.5269 | 0.45 | 0.5764 | 0.5294 |
 | 11 | 0.50 | 0.5982 | 0.5317 | 0.45 | 0.6087 | 0.5482 |
 | 16 | 0.50 | 0.6440 | 0.5528 | 0.45 | 0.6467 | 0.5582 |
+
 !["SeqMatchSeq_BiMPM1.png"](models/SeqMatchSeq_BiMPM1.png "模型结构1")
 ### 其他
 Evaluating with file: data/atec/10/train0.csv, local dict: data/atec/10/train0-2-2.json...  
 Evaluating with file: data/atec/10/valid0.csv, local dict: data/atec/10/train0-2-2.json...
 + modeC=10+dropout0.1    
+
 The total number of trainable variables(embedding matrix excluded): 407381
   
 | epoch | threshold | t_f1 | v_f1 | threshold | t_f1 | v_f1 |
